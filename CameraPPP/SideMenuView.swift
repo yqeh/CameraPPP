@@ -1,0 +1,358 @@
+//
+//  SideMenuView.swift
+//  CameraPPP
+//
+//  Created by Otis Lin on 2026/5/22.
+//
+import SwiftUI
+
+struct SideMenuView: View {
+    @Binding var isMenuOpen: Bool
+    var openDestination: (SideMenuDestination) -> Void
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 12) {
+                Image("aaa")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 64, height: 64)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .padding(.top, 40)
+                
+                Text("Quick Video Recorder")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                
+                Text("Easy record video by one click")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(UIColor.systemGray6))
+            
+            Divider().background(Color.gray.opacity(0.5))
+            
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    MenuRow(icon: "play.rectangle.on.rectangle", title: "Gallery") {
+                        openPage(.gallery)
+                    }
+                    MenuRow(icon: "scissors", title: "Video Trimmer") {
+                        openPage(.trimmer)
+                    }
+                    MenuRow(icon: "gearshape.fill", title: "Settings") {
+                        openPage(.settings)
+                    }
+                    MenuRow(icon: "camera.fill", title: "Photo settings (BETA)") {
+                        openPage(.photoSettings)
+                    }
+                    MenuRow(icon: "paperplane.fill", title: "Support and Upgrade") {
+                        openPage(.support)
+                    }
+                    
+                    Divider().background(Color.gray.opacity(0.5)).padding(.vertical, 10)
+                    
+                    MenuRow(icon: "square.and.arrow.up", title: "Share this app") {
+                        withAnimation { isMenuOpen = false }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            // shareApp() // 呼叫你的分享邏輯
+                        }
+                    }
+                }
+                .padding(.vertical)
+            }
+            Spacer()
+        }
+        .background(Color.black)
+        .ignoresSafeArea()
+    }
+
+    private func openPage(_ destination: SideMenuDestination) {
+        withAnimation {
+            isMenuOpen = false
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            openDestination(destination)
+        }
+    }
+}
+
+// MARK: - 側邊欄選單列
+struct MenuRow: View {
+    var icon: String
+    var title: LocalizedStringKey
+    var action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 20) {
+                Image(systemName: icon)
+                    .font(.title3)
+                    .frame(width: 24)
+                
+                Text(title)
+                    .font(.system(size: 16, weight: .medium))
+                
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+        }
+        .buttonStyle(MenuButtonStyle())
+    }
+}
+
+struct MenuButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundColor(configuration.isPressed ? .red : .white)
+            .background(configuration.isPressed ? Color.red.opacity(0.2) : Color.clear)
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
+enum SideMenuDestination: Hashable {
+    case gallery
+    case trimmer
+    case settings
+    case photoSettings
+    case support
+}
+
+
+struct ScheduleView: View {
+    @State private var targetDate = Date().addingTimeInterval(300)
+    @State private var showDatePicker = false
+    @State private var showTimePicker = false
+    @State private var showDurationOptions = false
+    @State private var showCameraOptions = false
+    @State private var showRepeatRecordingOptions = false
+    @State private var showAlert = false
+    @State private var alertMessage = ""
+    @State private var selectedDurationMinutes = 5
+    @State private var isRepeatRecordingEnabled = true
+    @AppStorage(CameraFacing.storageKey) private var preferredCameraFacing = CameraFacing.back.rawValue
+    
+    private var dateString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy/MM/dd"
+        return formatter.string(from: targetDate)
+    }
+    
+    private var timeString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "hh:mm a"
+        return formatter.string(from: targetDate)
+    }
+
+    private var repeatEveryDay: String {
+        AppLanguage.current.localized("OFF", "關閉")
+    }
+
+    private var duration: String {
+        "\(selectedDurationMinutes) 分鐘 0 秒"
+    }
+
+    private var cameraPosition: String {
+        (CameraFacing(rawValue: preferredCameraFacing) ?? .back).settingsDisplayName
+    }
+
+    private var repeatRecording: String {
+        isRepeatRecordingEnabled ? "開啟" : "關閉"
+    }
+
+    private var fixScheduling: String {
+        AppLanguage.current.localized("OFF", "關閉")
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    
+                    Text("Set Up a Recording Automatically")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.blue)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 20)
+                        .padding(.bottom, 10)
+                    
+                    ScheduleRow(title: "DATE", value: dateString) {
+                        showDatePicker = true
+                    }
+                    
+                    ScheduleRow(title: "TIME", value: timeString) {
+                        showTimePicker = true
+                    }
+                    
+                    ScheduleRow(title: "REPEAT EVERY DAY", value: repeatEveryDay) {}
+                    ScheduleRow(title: "時長", value: duration) {
+                        showDurationOptions = true
+                    }
+                    .confirmationDialog("時長", isPresented: $showDurationOptions, titleVisibility: .visible) {
+                        Button("3 分鐘 0 秒") {
+                            selectedDurationMinutes = 3
+                        }
+
+                        Button("5 分鐘 0 秒") {
+                            selectedDurationMinutes = 5
+                        }
+
+                        Button("30 分鐘 0 秒") {
+                            selectedDurationMinutes = 30
+                        }
+
+                        Button("60 分鐘 0 秒") {
+                            selectedDurationMinutes = 60
+                        }
+
+                        Button("Cancel", role: .cancel) { }
+                    }
+                    ScheduleRow(title: "CAMERA", value: cameraPosition) {
+                        showCameraOptions = true
+                    }
+                    .confirmationDialog("CAMERA", isPresented: $showCameraOptions, titleVisibility: .visible) {
+                        Button("前置鏡頭") {
+                            preferredCameraFacing = CameraFacing.front.rawValue
+                        }
+
+                        Button("後置鏡頭") {
+                            preferredCameraFacing = CameraFacing.back.rawValue
+                        }
+
+                        Button("Cancel", role: .cancel) { }
+                    }
+                    ScheduleRow(title: "重複錄影", value: repeatRecording) {
+                        showRepeatRecordingOptions = true
+                    }
+                    .confirmationDialog("重複錄影", isPresented: $showRepeatRecordingOptions, titleVisibility: .visible) {
+                        Button("開啟") {
+                            isRepeatRecordingEnabled = true
+                        }
+
+                        Button("關閉") {
+                            isRepeatRecordingEnabled = false
+                        }
+
+                        Button("Cancel", role: .cancel) { }
+                    }
+                    ScheduleRow(title: "FIX SCHEDULING NOT WORKING", value: fixScheduling) {}
+                }
+                .padding(.bottom, 20)
+            }
+            
+            HStack(spacing: 15) {
+                Button(action: {
+                    targetDate = Date().addingTimeInterval(300)
+                }) {
+                    Text("CANCEL")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(Color.red.opacity(0.6))
+                        .cornerRadius(25)
+                }
+                
+                Button(action: {
+                    scheduleRecording()
+                }) {
+                    Text("SCHEDULE")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(Color.blue)
+                        .cornerRadius(25)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 30)
+            .padding(.top, 10)
+            .background(Color.black)
+        }
+        .background(Color.black)
+        .onAppear {
+            NotificationManager.shared.requestPermission()
+        }
+        .alert(isPresented: $showAlert) {
+            Alert(title: Text("Schedule"), message: Text(alertMessage), dismissButton: .default(Text("OK")))
+        }
+        .sheet(isPresented: $showDatePicker) {
+            VStack {
+                DatePicker("Select Date", selection: $targetDate, displayedComponents: .date)
+                    .datePickerStyle(.graphical)
+                    .padding()
+                Button("Done") { showDatePicker = false }
+                    .font(.headline)
+                    .padding()
+            }
+            .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showTimePicker) {
+            VStack {
+                DatePicker("Select Time", selection: $targetDate, displayedComponents: .hourAndMinute)
+                    .datePickerStyle(.wheel)
+                    .labelsHidden()
+                    .padding()
+                Button("Done") { showTimePicker = false }
+                    .font(.headline)
+                    .padding()
+            }
+            .presentationDetents([.medium])
+        }
+    }
+    
+    // MARK: - 排程邏輯
+    private func scheduleRecording() {
+        if targetDate < Date() {
+            alertMessage = AppLanguage.current.localized("Please select a future time.", "請選擇未來的時間。")
+            showAlert = true
+            return
+        }
+        
+        NotificationManager.shared.scheduleNotification(at: targetDate)
+        
+        alertMessage = AppLanguage.current.localized(
+            "Recording scheduled successfully!\nYou will receive a notification at \(timeString).",
+            "錄影排程已成功建立！\n您將在 \(timeString) 收到通知。"
+        )
+        showAlert = true
+    }
+}
+
+struct ScheduleRow: View {
+    var title: LocalizedStringKey
+    var value: String
+    var action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.white)
+                
+                Spacer()
+                
+                if !value.isEmpty {
+                    Text(value)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.gray)
+                }
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.white)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 20)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
