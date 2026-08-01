@@ -12,6 +12,7 @@ final class TrialManager: ObservableObject {
     static let shared = TrialManager()
 
     @Published private(set) var firstInstallDate: Date
+    @Published private(set) var isTrialActive: Bool
 
     private init() {
         if let savedDate = UserDefaults.standard.object(forKey: SubscriptionConfig.firstInstallDateKey) as? Date {
@@ -21,11 +22,15 @@ final class TrialManager: ObservableObject {
             firstInstallDate = now
             UserDefaults.standard.set(now, forKey: SubscriptionConfig.firstInstallDateKey)
         }
+        isTrialActive = Date().timeIntervalSince(firstInstallDate) < SubscriptionConfig.trialDuration
     }
 
-    /// 試用期是否仍在進行中
-    var isTrialActive: Bool {
-        Date().timeIntervalSince(firstInstallDate) < SubscriptionConfig.trialDuration
+    /// 更新試用狀態（App 使用中到達 3 小時時觸發付費牆）
+    func refreshTrialStatus() {
+        let active = Date().timeIntervalSince(firstInstallDate) < SubscriptionConfig.trialDuration
+        if isTrialActive != active {
+            isTrialActive = active
+        }
     }
 
     /// 試用剩餘秒數

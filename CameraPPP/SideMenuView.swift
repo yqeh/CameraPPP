@@ -7,8 +7,10 @@
 import SwiftUI
 
 struct SideMenuView: View {
+    @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @Binding var isMenuOpen: Bool
     var openDestination: (SideMenuDestination) -> Void
+    var openPaywall: () -> Void
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -49,6 +51,16 @@ struct SideMenuView: View {
                     MenuRow(icon: "camera.fill", title: "Photo settings (BETA)") {
                         openPage(.photoSettings)
                     }
+                    MenuRow(
+                        icon: subscriptionManager.isPremium ? "crown.fill" : "cart.fill",
+                        title: subscriptionManager.isPremium ? "Premium Active" : "Upgrade Premium"
+                    ) {
+                        withAnimation { isMenuOpen = false }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                            openPaywall()
+                        }
+                    }
+
                     MenuRow(icon: "paperplane.fill", title: "Support and Upgrade") {
                         openPage(.support)
                     }

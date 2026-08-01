@@ -15,6 +15,8 @@ struct MainContainerView: View {
     @AppStorage(CameraFacing.storageKey) private var preferredCameraFacingRaw = CameraFacing.back.rawValue
     @State private var navigationPath: [SideMenuDestination] = []
     @State private var showPaywall = false
+    @State private var allowPaywallDismiss = true
+    @State private var trialCheckTimer: Timer?
     
     @State private var cameraManager: CameraManager
     
@@ -60,7 +62,8 @@ struct MainContainerView: View {
                     
                     SideMenuView(
                         isMenuOpen: $isMenuOpen,
-                        openDestination: openDestination
+                        openDestination: openDestination,
+                        openPaywall: openPaywallManually
                     )
                     .frame(width: UIScreen.main.bounds.width * 0.75)
                     .transition(.move(edge: .leading))
@@ -97,9 +100,18 @@ struct MainContainerView: View {
             cameraManager.updateCameraFacing(preferredCameraFacing)
         }
         .onAppear {
+            startTrialMonitoring()
             evaluatePaywallPresentation()
         }
+        .onDisappear {
+            trialCheckTimer?.invalidate()
+            trialCheckTimer = nil
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            trialManager.refreshTrialStatus()
+            evaluatePaywallPresentation()
+        }
+        .onChange(of: trialManager.isTrialActive) { _, _ in
             evaluatePaywallPresentation()
         }
         .onChange(of: subscriptionManager.isPremium) { _, isPremium in
@@ -108,7 +120,7 @@ struct MainContainerView: View {
             }
         }
         .fullScreenCover(isPresented: $showPaywall) {
-            PaywallView(isPresented: $showPaywall)
+            PaywallView(isPresented: $showPaywall, allowDismiss: allowPaywallDismiss)
                 .environmentObject(subscriptionManager)
                 .environmentObject(trialManager)
         }
@@ -118,8 +130,27 @@ struct MainContainerView: View {
         navigationPath.append(destination)
     }
 
-    /// 試用結束後自動顯示付費牆
+    /// 側邊欄 / Support 手動開啟付費牆
+    private func openPaywallManually() {
+        allowPaywallDismiss = true
+        showPaywall = true
+    }
+
+    /// 每秒檢查試用是否到期，到期立即弹出付費牆
+    private func startTrialMonitoring() {
+        trialCheckTimer?.invalidate()
+        trialCheckTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+            Task { @MainActor in
+                trialManager.refreshTrialStatus()
+                evaluatePaywallPresentation()
+            }
+        }
+    }
+
+    /// 試用結束後自動顯示付費牆（不可關閉，直到訂閱）
     private func evaluatePaywallPresentation() {
-        showPaywall = trialManager.shouldShowPaywall(isPremium: subscriptionManager.isPremium)
+        guard trialManager.shouldShowPaywall(isPremium: subscriptionManager.isPremium) else { return }
+        allowPaywallDismiss = false
+        showPaywall = true
     }
 }

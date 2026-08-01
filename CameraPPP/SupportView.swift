@@ -115,7 +115,7 @@ struct SupportView: View {
         }
         .background(.black)
         .sheet(isPresented: $showPaywall) {
-            PaywallView(isPresented: $showPaywall)
+            PaywallView(isPresented: $showPaywall, allowDismiss: true)
                 .environmentObject(subscriptionManager)
                 .environmentObject(trialManager)
         }

@@ -12,8 +12,18 @@ struct PaywallView: View {
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @EnvironmentObject private var trialManager: TrialManager
     @Binding var isPresented: Bool
+    /// 試用結束自動弹出時為 false，不可關閉；手動開啟時為 true
+    var allowDismiss: Bool = true
 
     @State private var selectedPlan: PaywallPlan = .yearly
+
+    private var monthlyPriceText: String {
+        subscriptionManager.monthlyProduct?.displayPrice ?? SubscriptionConfig.fallbackMonthlyPrice
+    }
+
+    private var yearlyPriceText: String {
+        subscriptionManager.yearlyProduct?.displayPrice ?? SubscriptionConfig.fallbackYearlyPrice
+    }
 
     var body: some View {
         ZStack {
@@ -38,6 +48,10 @@ struct PaywallView: View {
                     .scaleEffect(1.2)
             }
         }
+        .interactiveDismissDisabled(!allowDismiss)
+        .task {
+            await subscriptionManager.loadProducts()
+        }
         .alert(isPresented: $subscriptionManager.showAlert) {
             Alert(
                 title: Text("Premium"),
@@ -53,6 +67,19 @@ struct PaywallView: View {
 
     private var headerSection: some View {
         VStack(spacing: 12) {
+            if allowDismiss {
+                HStack {
+                    Spacer()
+                    Button {
+                        isPresented = false
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.gray)
+                    }
+                }
+            }
+
             Image(systemName: "crown.fill")
                 .font(.system(size: 44))
                 .foregroundColor(.yellow)
@@ -70,8 +97,8 @@ struct PaywallView: View {
                     .foregroundColor(.green)
             } else {
                 Text(AppLanguage.current.localized(
-                    "Your free trial has ended. Subscribe to continue using all features.",
-                    "免費試用已結束，訂閱後可繼續使用完整功能。"
+                    "Your free trial has ended. Subscribe to continue.",
+                    "免費試用已結束（3 小時），請訂閱以繼續使用。"
                 ))
                 .font(.subheadline)
                 .foregroundColor(.gray)
@@ -94,10 +121,6 @@ struct PaywallView: View {
                 "Video trimmer tools",
                 "影片剪輯工具"
             ))
-            paywallFeature(icon: "xmark.circle", text: AppLanguage.current.localized(
-                "Remove ads",
-                "移除廣告"
-            ))
         }
         .padding(20)
         .background(Color(white: 0.12))
@@ -109,17 +132,25 @@ struct PaywallView: View {
             planCard(
                 plan: .monthly,
                 title: AppLanguage.current.localized("Monthly", "月訂閱"),
-                price: subscriptionManager.monthlyProduct?.displayPrice ?? SubscriptionConfig.fallbackMonthlyPrice,
+                price: monthlyPriceText,
                 subtitle: AppLanguage.current.localized("Billed every month", "每月自動續訂")
             )
 
             planCard(
                 plan: .yearly,
                 title: AppLanguage.current.localized("Yearly", "年訂閱"),
-                price: subscriptionManager.yearlyProduct?.displayPrice ?? SubscriptionConfig.fallbackYearlyPrice,
+                price: yearlyPriceText,
                 subtitle: AppLanguage.current.localized("Best value - save 75%", "最划算 - 省 75%"),
                 badge: AppLanguage.current.localized("RECOMMENDED", "推薦")
             )
+
+            Text(AppLanguage.current.localized(
+                "Reference pricing: \(SubscriptionConfig.fallbackMonthlyPrice)/month, \(SubscriptionConfig.fallbackYearlyPrice)/year",
+                "參考定價：\(SubscriptionConfig.fallbackMonthlyPrice)/月、\(SubscriptionConfig.fallbackYearlyPrice)/年"
+            ))
+            .font(.caption)
+            .foregroundColor(.gray)
+            .multilineTextAlignment(.center)
         }
     }
 
@@ -147,16 +178,6 @@ struct PaywallView: View {
                 Text(AppLanguage.current.localized("Restore Purchases", "恢復購買"))
                     .font(.subheadline.weight(.medium))
                     .foregroundColor(.white.opacity(0.85))
-            }
-
-            if !trialManager.isTrialActive {
-                Button {
-                    isPresented = false
-                } label: {
-                    Text(AppLanguage.current.localized("Maybe Later", "稍後再說"))
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                }
             }
         }
     }
@@ -251,6 +272,10 @@ struct PaywallView: View {
     }
 
     private func purchaseSelectedPlan() async {
+        if subscriptionManager.monthlyProduct == nil || subscriptionManager.yearlyProduct == nil {
+            await subscriptionManager.loadProducts()
+        }
+
         let product: Product?
 
         switch selectedPlan {
@@ -262,11 +287,10 @@ struct PaywallView: View {
 
         guard let product else {
             subscriptionManager.alertMessage = AppLanguage.current.localized(
-                "Product not available. Please check your network or try again later.",
-                "商品暫不可用，請確認網路或稍後再試。"
+                "Subscription is not ready yet. Please confirm products are configured in App Store Connect, or try again on TestFlight with a sandbox account.",
+                "訂閱商品尚未就緒。請確認 App Store Connect 已建立訂閱商品，或使用 TestFlight 沙盒帳號再試。"
             )
             subscriptionManager.showAlert = true
-            await subscriptionManager.loadProducts()
             return
         }
 
