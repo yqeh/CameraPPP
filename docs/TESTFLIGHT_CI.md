@@ -89,6 +89,29 @@ GitHub → **Actions** → **iOS TestFlight** → **Run workflow**
 
 ## 常見問題
 
+### Actions 一開始就失敗（0 秒、workflow file issue）
+
+已修復：舊版 workflow 在 `if` 條件直接使用 secrets 會導致整個流程無法執行。請 pull 最新版後重試。
+
+### Actions 失敗：缺少 APP_STORE_CONNECT_xxx
+
+到 https://github.com/yqeh/CameraPPP/settings/secrets/actions 確認已設定 3 個 Secrets：
+
+| Secret | 內容 |
+|--------|------|
+| `APP_STORE_CONNECT_KEY_ID` | Key ID（10 字元，例如 AB12CD34EF） |
+| `APP_STORE_CONNECT_ISSUER_ID` | Issuer ID（UUID） |
+| `APP_STORE_CONNECT_KEY` | .p8 檔案整份轉 **Base64**（不是貼 p8 原文） |
+
+PowerShell 轉 Base64：
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\path\to\AuthKey_XXXXX.p8"))
+```
+
+### App Store Connect 尚未建立 App
+
+必須先在 App Store Connect 建立 Bundle ID 為 `com.lin.energysaving` 的 App，否則上傳 TestFlight 會失敗。
+
 ### 建置失敗：Signing / Provisioning
 
 多數情況在 App Store Connect 建立 App 並設定好 API 金鑰即可。若仍失敗：
