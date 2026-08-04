@@ -65,6 +65,8 @@ struct MainContainerView: View {
                         openDestination: openDestination,
                         openPaywall: openPaywallManually
                     )
+                    .environmentObject(subscriptionManager)
+                    .environmentObject(trialManager)
                     .frame(width: UIScreen.main.bounds.width * 0.75)
                     .transition(.move(edge: .leading))
                     .zIndex(2)
@@ -92,6 +94,8 @@ struct MainContainerView: View {
                         .navigationBarBackButtonHidden(true)
                 case .support:
                     SupportView()
+                        .environmentObject(subscriptionManager)
+                        .environmentObject(trialManager)
                         .navigationBarBackButtonHidden(true)
                 }
             }
@@ -139,12 +143,14 @@ struct MainContainerView: View {
     /// 每秒檢查試用是否到期，到期立即弹出付費牆
     private func startTrialMonitoring() {
         trialCheckTimer?.invalidate()
-        trialCheckTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+        let timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
             Task { @MainActor in
                 trialManager.refreshTrialStatus()
                 evaluatePaywallPresentation()
             }
         }
+        RunLoop.main.add(timer, forMode: .common)
+        trialCheckTimer = timer
     }
 
     /// 試用結束後自動顯示付費牆（不可關閉，直到訂閱）

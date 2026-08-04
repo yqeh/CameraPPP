@@ -10,12 +10,10 @@ import Combine
 
 @MainActor
 final class TrialManager: ObservableObject {
-    static let shared = TrialManager()
-
     @Published private(set) var firstInstallDate: Date
     @Published private(set) var isTrialActive: Bool
 
-    private init() {
+    init() {
         if let savedDate = UserDefaults.standard.object(forKey: SubscriptionConfig.firstInstallDateKey) as? Date {
             firstInstallDate = savedDate
         } else {

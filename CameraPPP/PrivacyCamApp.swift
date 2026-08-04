@@ -10,8 +10,8 @@ import SwiftUI
 @main
 struct PrivacyCamApp: App {
     @AppStorage(AppLanguage.storageKey) private var appLanguageRaw = AppLanguage.traditionalChinese.rawValue
-    @StateObject private var subscriptionManager = SubscriptionManager.shared
-    @StateObject private var trialManager = TrialManager.shared
+    @StateObject private var subscriptionManager = SubscriptionManager()
+    @StateObject private var trialManager = TrialManager()
     
     var body: some Scene {
         WindowGroup {

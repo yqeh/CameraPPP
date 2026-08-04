@@ -11,8 +11,6 @@ import StoreKit
 
 @MainActor
 final class SubscriptionManager: ObservableObject {
-    static let shared = SubscriptionManager()
-
     @Published private(set) var monthlyProduct: Product?
     @Published private(set) var yearlyProduct: Product?
     @Published private(set) var isPremium = false
@@ -22,7 +20,7 @@ final class SubscriptionManager: ObservableObject {
 
     private var transactionListener: Task<Void, Never>?
 
-    private init() {
+    init() {
         isPremium = UserDefaults.standard.bool(forKey: SubscriptionConfig.premiumStatusKey)
         transactionListener = listenForTransactions()
 
@@ -46,11 +44,8 @@ final class SubscriptionManager: ObservableObject {
             monthlyProduct = products.first { $0.id == SubscriptionConfig.monthlyProductID }
             yearlyProduct = products.first { $0.id == SubscriptionConfig.yearlyProductID }
         } catch {
-            alertMessage = AppLanguage.current.localized(
-                "Unable to load subscription products. Please try again later.",
-                "無法載入訂閱方案，請稍後再試。"
-            )
-            showAlert = true
+            // 商品載入失敗時保留預設價格顯示，避免啟動時彈錯誤
+            print("WARN: 無法載入訂閱商品 - \(error.localizedDescription)")
         }
     }
 
