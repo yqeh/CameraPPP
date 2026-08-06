@@ -14,14 +14,16 @@ final class TrialManager: ObservableObject {
     @Published private(set) var isTrialActive: Bool
 
     init() {
+        let installDate: Date
         if let savedDate = UserDefaults.standard.object(forKey: SubscriptionConfig.firstInstallDateKey) as? Date {
-            firstInstallDate = savedDate
+            installDate = savedDate
         } else {
             let now = Date()
-            firstInstallDate = now
+            installDate = now
             UserDefaults.standard.set(now, forKey: SubscriptionConfig.firstInstallDateKey)
         }
-        isTrialActive = Date().timeIntervalSince(firstInstallDate) < SubscriptionConfig.trialDuration
+        firstInstallDate = installDate
+        isTrialActive = Date().timeIntervalSince(installDate) < SubscriptionConfig.trialDuration
     }
 
     /// 更新試用狀態（App 使用中到達 3 小時時觸發付費牆）
